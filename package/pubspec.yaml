@@ -1,0 +1,18 @@
+name: http_middleware
+description: Http Client Middleware.
+version: 0.1.0
+author: Andy Chentsov <chentsov@gmail.com>
+homepage: https://github.com/andyduke/dart_http_middleware /tree/master/package
+repository: https://github.com/andyduke/dart_http_middleware 
+issue_tracker: https://github.com/andyduke/dart_http_middleware /issues
+
+environment:
+  sdk: ^3.3.1
+
+dependencies:
+  http: ^1.2.1
+
+dev_dependencies:
+  collection: ^1.18.0
+  lints: ^3.0.0
+  test: ^1.24.0
