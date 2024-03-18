@@ -1,41 +1,96 @@
 # HttpMiddleware
 
-<!-- 
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
-
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/guides/libraries/writing-package-pages). 
-
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-library-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/developing-packages). 
--->
-
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
-
-## Features
-
-TODO: List what your package can do. Maybe include images, gifs, or videos.
-
-## Getting started
-
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
+Makes it possible to add several middleware handlers to the [HTTP client](https://pub.dev/packages/http), for example to log requests and responses.
 
 ## Usage
 
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder. 
-
+An example of implementing a log of HTTP requests and responses:
 ```dart
-const like = 'sample';
+class HttpRequestInfo with ChangeNotifier {
+  final http.BaseRequest request;
+
+  http.StreamedResponse? get response => _response;
+  http.StreamedResponse? _response;
+  set response(http.StreamedResponse? newValue) {
+    if (_response != newValue) {
+      _response = newValue;
+      notifyListeners();
+    }
+  }
+
+  HttpRequestInfo({
+    required this.request,
+    http.StreamedResponse? response,
+  }) : _response = response;
+
+  @override
+  bool operator ==(covariant HttpRequestInfo other) => request.hashCode == other.request.hashCode;
+
+  @override
+  int get hashCode => request.hashCode;
+
+  @override
+  String toString() => '''HttpRequestInfo:
+  request: $request
+  response: $response
+''';
+}
+
+class HttpLogController with ChangeNotifier {
+  final Set<HttpRequestInfo> _log = {};
+
+  HttpLogController();
+
+  Set<HttpRequestInfo> get log => UnmodifiableSetView(_log);
+
+  void addRequest(http.BaseRequest request) {
+    _log.add(HttpRequestInfo(request: request));
+    notifyListeners();
+  }
+
+  void addResponse(http.StreamedResponse response) {
+    final request = _log.firstWhereOrNull((info) => info.request == response.request);
+    if (request != null) {
+      request.response = response;
+      notifyListeners();
+    } else {
+      throw Exception('[HttpLogController] Request "${response.request}" for response not found.');
+    }
+  }
+}
+
+class HttpLogInterceptor extends HttpMiddleware {
+  final HttpLogController log;
+
+  HttpLogInterceptor({
+    required this.log,
+  });
+
+  @override
+  Future<http.BaseRequest> onRequest(http.BaseRequest request) async {
+    log.addRequest(request);
+    return request;
+  }
+
+  @override
+  Future<http.StreamedResponse> onResponse(http.StreamedResponse response) async {
+    log.addResponse(response);
+    return response;
+  }
+}
 ```
 
-## Additional information
+...an example of using this HTTP request and response logger:
+```dart
+final httpLog = HttpLogController();
+final client = HttpMiddlewareClient(
+  http.Client(),
+  middleware: [
+    HttpLogInterceptor(log: httpLog),
+  ],
+);
 
-TODO: Tell users more about the package: where to find more information, how to 
-contribute to the package, how to file issues, what response they can expect 
-from the package authors, and more.
+var response = await client.get(Uri.parse('https://httpbin.org/get'));
+
+print('${httpLog.log}');
+```
